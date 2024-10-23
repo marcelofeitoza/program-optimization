@@ -1,15 +1,12 @@
 [package]
-name = "native_counter"
+name = "native_rust_counter"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "native_counter"
+name = "native_rust_counter"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
 solana-program = "2.0.13"
 borsh = { version = "1.5.1", features = ["derive"] }
-
-[build]
-target-dir = "../target"
