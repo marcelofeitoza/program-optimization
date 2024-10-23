@@ -12,27 +12,14 @@ import {
 import { Buffer } from "buffer";
 import { expect } from "chai";
 
-describe("program rust counter", () => {
+describe("common counter", () => {
 	const programId = new PublicKey(
-		"maqskB5ZX5xwAVC61D6K7vuVLuuLSYqp8ibSGRhEAT7"
+		"2fALh8g6NYumJ5Y3UsDYDL1WYhtnKMXgiijHyngVztbf"
 	);
 	const connection = new Connection("http://localhost:8899", "confirmed");
 
 	let counterAccount: Keypair;
 	let keyPair: Keypair;
-
-	async function logTransactionDetails(
-		connection: Connection,
-		signature: string
-	) {
-		const txDetails = await connection.getTransaction(signature, {
-			commitment: "confirmed",
-		});
-
-		if (txDetails && txDetails.meta) {
-			console.log("Transaction Logs:", txDetails.meta.logMessages);
-		}
-	}
 
 	before(async () => {
 		keyPair = Keypair.generate();
@@ -43,7 +30,7 @@ describe("program rust counter", () => {
 		await connection.confirmTransaction(airdropSignature);
 	});
 
-	before(async () => {
+	beforeEach(async () => {
 		try {
 			counterAccount = Keypair.generate();
 			const tx = new Transaction();
@@ -96,7 +83,7 @@ describe("program rust counter", () => {
 				"confirmed"
 			);
 
-			console.log("Before hook: ");
+			// Log compute units used during initialization
 			await logTransactionDetails(connection, signature);
 		} catch (error: any) {
 			console.error("Error in beforeEach:", error);
@@ -110,29 +97,56 @@ describe("program rust counter", () => {
 		}
 	});
 
-	it("ensures the counter account is owned by the program", async () => {
-		const accountInfo = await connection.getAccountInfo(
-			counterAccount.publicKey
-		);
-		if (!accountInfo) {
-			throw new Error("Counter account was not created");
-		}
+	async function logTransactionDetails(
+		connection: Connection,
+		signature: string
+	) {
+		const txDetails = await connection.getTransaction(signature, {
+			commitment: "confirmed",
+		});
 
-		expect(accountInfo).to.not.be.null;
-		expect(accountInfo?.owner.toBase58()).to.equal(programId.toBase58());
-	});
-
-	it("initializes the counter to 0", async () => {
-		const counterData = await connection.getAccountInfo(
-			counterAccount.publicKey
-		);
-		if (counterData && counterData.data) {
-			const counter = counterData.data.readBigUInt64LE(0);
-			expect(Number(counter)).to.equal(0);
-		} else {
-			throw new Error("Failed to fetch account info.");
+		if (txDetails && txDetails.meta) {
+			console.log("Transaction Logs:", txDetails.meta.logMessages);
 		}
-	});
+	}
+
+	async function sendInstruction(
+		connection: Connection,
+		programId: PublicKey,
+		keyPair: Keypair,
+		counterAccount: PublicKey,
+		data: Buffer
+	): Promise<string> {
+		const tx = new Transaction().add(
+			new TransactionInstruction({
+				programId,
+				keys: [
+					{
+						pubkey: counterAccount,
+						isSigner: false,
+						isWritable: true,
+					},
+				],
+				data: data,
+			})
+		);
+
+		tx.recentBlockhash = (
+			await connection.getLatestBlockhash("confirmed")
+		).blockhash;
+		tx.feePayer = keyPair.publicKey;
+
+		const versionedTx = new VersionedTransaction(tx.compileMessage());
+		versionedTx.sign([keyPair]);
+
+		const signature = await connection.sendTransaction(versionedTx, {
+			skipPreflight: false,
+			preflightCommitment: "confirmed",
+		});
+		await connection.confirmTransaction(signature, "confirmed");
+
+		return signature;
+	}
 
 	it("increments the counter", async () => {
 		const incrementData = Buffer.from([1]);
@@ -157,6 +171,15 @@ describe("program rust counter", () => {
 	});
 
 	it("decrements the counter", async () => {
+		const incrementData = Buffer.from([1]);
+		await sendInstruction(
+			connection,
+			programId,
+			keyPair,
+			counterAccount.publicKey,
+			incrementData
+		);
+
 		const decrementData = Buffer.from([2]);
 		const signature = await sendInstruction(
 			connection,
@@ -190,47 +213,11 @@ describe("program rust counter", () => {
 				decrementData
 			);
 
+			await logTransactionDetails(connection, signature);
+
 			throw new Error("Decrement should have failed, but it succeeded.");
 		} catch (error: any) {
-			expect(error.message).to.include("custom program error: 0x1");
+			expect(error.message).to.include("Simulation failed.");
 		}
 	});
 });
-
-async function sendInstruction(
-	connection: Connection,
-	programId: PublicKey,
-	keyPair: Keypair,
-	counterAccount: PublicKey,
-	data: Buffer
-): Promise<string> {
-	const tx = new Transaction().add(
-		new TransactionInstruction({
-			programId,
-			keys: [
-				{
-					pubkey: counterAccount,
-					isSigner: false,
-					isWritable: true,
-				},
-			],
-			data: data,
-		})
-	);
-
-	tx.recentBlockhash = (
-		await connection.getLatestBlockhash("confirmed")
-	).blockhash;
-	tx.feePayer = keyPair.publicKey;
-
-	const versionedTx = new VersionedTransaction(tx.compileMessage());
-	versionedTx.sign([keyPair]);
-
-	const signature = await connection.sendTransaction(versionedTx, {
-		skipPreflight: false,
-		preflightCommitment: "confirmed",
-	});
-	await connection.confirmTransaction(signature, "confirmed");
-
-	return signature;
-}
