@@ -1,0 +1,8 @@
+$ rm -rf ./out/ && make && solana program deploy ./out/program.so
+mkdir -p ./out
+/Users/marcelofeitoza/.local/share/solana/install/active_release/bin/sdk/sbf/c/../dependencies/platform-tools/llvm/bin/clang -target sbf -fPIC -o ./out/program.o -c ./src/program.s
+/Users/marcelofeitoza/.local/share/solana/install/active_release/bin/sdk/sbf/c/../dependencies/platform-tools/llvm/bin/ld.lld -z notext -shared --Bdynamic /Users/marcelofeitoza/.local/share/solana/install/active_release/bin/sdk/sbf/c/sbf.ld --entry entrypoint -L /Users/marcelofeitoza/.local/share/solana/install/active_release/bin/sdk/sbf/c/../dependencies/platform-tools/llvm/lib -lc -o ./out/program.so ./out/program.o
+mkdir -p ./out
+/Users/marcelofeitoza/.local/share/solana/install/active_release/bin/sdk/sbf/c/../dependencies/platform-tools/llvm/bin/clang -Werror -O0 -fno-builtin -std=c17 -isystem/Users/marcelofeitoza/.local/share/solana/install/active_release/bin/sdk/sbf/c/inc -isystem/Users/marcelofeitoza/.local/share/solana/install/active_release/bin/sdk/sbf/c/../dependencies/platform-tools/llvm/lib/clang/15.0.4/include -I/Users/marcelofeitoza/.local/share/solana/install/active_release/bin/sdk/sbf/c/../dependencies/platform-tools/llvm/include -target sbf -fPIC -S -o ./out/program.s ./src/program.c
+Program Id: jFCjrizq9qX6fhAhxN871BiM4yoFWooVtKo8J5z7tB4
+
